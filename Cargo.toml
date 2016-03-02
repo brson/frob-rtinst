@@ -1,0 +1,9 @@
+[package]
+name = "frob-rtinst"
+version = "0.1.0"
+authors = ["Brian Anderson <banderson@mozilla.com>"]
+
+[dependencies]
+log = "0.3"
+env_logger = "0.3"
+regex = "0.1.55"
