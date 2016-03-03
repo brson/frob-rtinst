@@ -20,7 +20,7 @@ fn main() {
     let boxes = build_mem_boxes(&events);
 
     for box_ in boxes {
-        println!("{:?}", box_);
+        println!("box: {:?}", box_);
     }
 }
 
@@ -102,8 +102,25 @@ fn build_mem_boxes(events: &[event_log::Event]) -> Vec<MemBox> {
                     error!("no open box for {:?}", event);
                 }
             }
+            EventDetails::BoxCreate { ptr, .. } => {
+                open_boxes.assert_dont_know(ptr);
+                open_boxes.push(OpenBox::BoxCreate(ptr), event);
+            }
+            EventDetails::BoxDrop { ref t, ptr } => {
+                if let Some(prev_event) = open_boxes.pop(OpenBox::BoxCreate(ptr)) {
+                    boxes.push(MemBox {
+                        start_time: prev_event.timestamp,
+                        end_time: event.timestamp,
+                        start_address: ptr,
+                        end_address: ptr + t.size,
+                        details: MemDetails::Box,
+                    });
+                } else {
+                    error!("no open box for {:?}", event);
+                }
+            }
             _ => {
-                
+                error!("unhandled event: {:?}", event);
             }
         }
     }
@@ -117,6 +134,7 @@ fn build_mem_boxes(events: &[event_log::Event]) -> Vec<MemBox> {
 enum OpenBox {
     Allocate(Address),
     Reallocate(Address),
+    BoxCreate(Address),
 }
 
 struct OpenBoxStack<'a>(Vec<(OpenBox, &'a event_log::Event)>);
@@ -148,5 +166,8 @@ impl<'a> OpenBoxStack<'a> {
     }
 
     fn assert_empty(&self) {
+        for &(_, event) in &self.0 {
+            println!("unclosed box: {:?}", event);
+        }
     }
 }
