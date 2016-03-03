@@ -83,3 +83,23 @@ fn parse_event(regex: &Regex, line: &str) -> Option<Event> {
 fn parse_details(s: &str) -> Option<EventDetails> {
     event_parser::parse_EventDetails(s).ok()
 }
+
+impl Event {
+    pub fn ptr(&self) -> u64 {
+        match self.details {
+            EventDetails::Allocate { ptr, .. } |
+            EventDetails::Reallocate { outptr: ptr, .. } |
+            EventDetails::ReallocateInplace { ptr, .. } |
+            EventDetails::Deallocate { ptr, .. } |
+            EventDetails::BoxCreate { ptr, .. } |
+            EventDetails::BoxDrop { ptr, .. } |
+            EventDetails::RcCreate { ptr, .. } |
+            EventDetails::RcDrop { ptr, .. } |
+            EventDetails::ArcCreate { ptr, .. } |
+            EventDetails::ArcDrop { ptr, .. } |
+            EventDetails::VecCreate { ptr, .. } |
+            EventDetails::VecResize { new_ptr: ptr, .. } |
+            EventDetails::VecDrop { ptr, .. } => ptr
+        }
+    }
+}
