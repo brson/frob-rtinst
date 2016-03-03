@@ -2,8 +2,13 @@
 name = "frob-rtinst"
 version = "0.1.0"
 authors = ["Brian Anderson <banderson@mozilla.com>"]
+build = "build.rs"
 
 [dependencies]
 log = "0.3"
 env_logger = "0.3"
 regex = "0.1.55"
+lalrpop-util = "0.11.0"
+
+[build-dependencies]
+lalrpop = "0.11.0"

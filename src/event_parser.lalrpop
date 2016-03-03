@@ -1,0 +1,49 @@
+use std::str::FromStr;
+use event_log::{EventDetails, TypeInfo, UnsizedTypeInfo};
+
+grammar;
+
+pub EventDetails: EventDetails = {
+    "Allocate { size:" <s:Num> ", align:" <a:Num> ", ptr:" <p:Ptr> "}"
+        => EventDetails::Allocate { size: s, align: a, ptr: p },
+    "Reallocate { inptr:" <ip:Ptr> ", old_size:" <os:Num> ", size:" <s:Num> ", align:" <a:Num> ", outptr:" <op:Ptr> "}"
+        => EventDetails::Reallocate { inptr: ip, old_size: os, size: s, align: a, outptr: op },
+    "ReallocateInplace { ptr:" <p:Ptr> ", old_size:" <os:Num> ", size:" <s:Num> ", align:" <a:Num> "}"
+        => EventDetails::ReallocateInplace { ptr: p, old_size: os, size: s, align: a },
+    "Deallocate { ptr:" <p:Ptr> ", old_size:" <os:Num> ", align:" <a:Num> "}"
+        => EventDetails::Deallocate { ptr: p, old_size: os, align: a },
+    "BoxCreate { t:" <t:TypeInfo> ", ptr:" <p:Ptr> "}"
+        => EventDetails::BoxCreate { t: t, ptr: p },
+    "BoxDrop { t:" <t:TypeInfo> ", ptr:" <p:Ptr> "}"
+        => EventDetails::BoxDrop { t: t, ptr: p },
+    "RcCreate { t:" <t:TypeInfo> ", ptr:" <p:Ptr> "}"
+        => EventDetails::RcCreate { t: t, ptr: p },
+    "RcDrop { t:" <t:UnsizedTypeInfo> ", ptr:" <p:Ptr> "}"
+        => EventDetails::RcDrop { t: t, ptr: p },
+    "ArcCreate { t:" <t:TypeInfo> ", ptr:" <p:Ptr> "}"
+        => EventDetails::ArcCreate { t: t, ptr: p  },
+    "ArcDrop { t:" <t:UnsizedTypeInfo> ", ptr:" <p:Ptr> "}"
+        => EventDetails::ArcDrop { t: t, ptr: p  },
+    "VecCreate { t:" <t:TypeInfo> ", len:" <l:Num> ", capacity:" <c:Num> ", ptr:" <p:Ptr> "}"
+        => EventDetails::VecCreate { t: t, len: l, capacity: c, ptr: p },
+    "VecResize { t:" <t:TypeInfo> ", len:" <l:Num> ", capacity:" <c:Num> ", old_ptr:" <op:Ptr> ", new_ptr:" <np:Ptr> "}"
+        => EventDetails::VecResize { t: t, len: l, capacity: c, old_ptr: op, new_ptr: np },
+    "VecDrop { t:" <t:TypeInfo> ", len:" <l:Num> ", capacity:" <c:Num> ", ptr:" <p:Ptr> "}"
+        => EventDetails::VecDrop { t: t, len: l, capacity: c, ptr: p },
+};
+
+TypeInfo: TypeInfo = {
+    "TypeInfo { name:" <n:String> ", size:" <s:Num> "}"
+        => TypeInfo { name: n, size: s }
+};
+
+UnsizedTypeInfo: UnsizedTypeInfo = {
+    "UnsizedTypeInfo { name:" <n:String> "}"
+        => UnsizedTypeInfo { name: n }
+};
+
+Num: u64 = r"[0-9]+" => u64::from_str(<>).unwrap();
+Ptr: u64 = r"0x[0-9a-f]+" => u64::from_str_radix(&<>[2..], 16).unwrap();
+String: String = <s:r#"".*""#> => s[1..s.len()-1].to_string();
+
+
