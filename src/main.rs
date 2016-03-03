@@ -142,6 +142,29 @@ fn build_mem_boxes(events: &[event_log::Event]) -> Vec<MemBox> {
                     error!("no open box for {:?}", event);
                 }
             }
+            EventDetails::ArcCreate { ptr, .. } => {
+                open_boxes.assert_dont_know(ptr);
+                open_boxes.push(OpenBox::ArcCreate(ptr), event);
+            }
+            EventDetails::ArcDrop { ptr, .. } => {
+                if let Some(prev_event) = open_boxes.pop(OpenBox::ArcCreate(ptr)) {
+                    // RcDrop doesn't have a sized type so get the size
+                    // from the RcCreate event
+                    let t_size = match prev_event.details {
+                        EventDetails::ArcCreate { ref t, .. } => t.size,
+                        _ => unreachable!(),
+                    };
+                    boxes.push(MemBox {
+                        start_time: prev_event.timestamp,
+                        end_time: event.timestamp,
+                        start_address: ptr,
+                        end_address: ptr + t_size,
+                        details: MemDetails::Arc,
+                    });
+                } else {
+                    error!("no open box for {:?}", event);
+                }
+            }
             _ => {
                 error!("unhandled event: {:?}", event);
             }
@@ -159,6 +182,7 @@ enum OpenBox {
     Reallocate(Address),
     BoxCreate(Address),
     RcCreate(Address),
+    ArcCreate(Address),
 }
 
 struct OpenBoxStack<'a>(Vec<(OpenBox, &'a event_log::Event)>);
