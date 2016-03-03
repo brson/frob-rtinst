@@ -39,8 +39,7 @@ enum MemDetails {
     Box,
     Rc,
     Arc,
-    VecCapacity,
-    VecLen,
+    Vec { fill: u64 },
 }
 
 type Address = u64;
@@ -165,6 +164,53 @@ fn build_mem_boxes(events: &[event_log::Event]) -> Vec<MemBox> {
                     error!("no open box for {:?}", event);
                 }
             }
+            EventDetails::VecCreate { ptr, .. } => {
+                open_boxes.assert_dont_know(ptr);
+                open_boxes.push(OpenBox::VecCreate(ptr), event);
+            }
+            EventDetails::VecResize { ref t, len, capacity, old_ptr, new_ptr } => {
+                if let Some(prev_event) = open_boxes.pop(OpenBox::VecCreate(old_ptr)) {
+                    boxes.push(MemBox {
+                        start_time: prev_event.timestamp,
+                        end_time: event.timestamp,
+                        start_address: old_ptr,
+                        end_address: old_ptr + t.size * capacity,
+                        details: MemDetails::Vec { fill: t.size * len },
+                    });
+                } else if let Some(prev_event) = open_boxes.pop(OpenBox::VecResize(old_ptr)) {
+                    boxes.push(MemBox {
+                        start_time: prev_event.timestamp,
+                        end_time: event.timestamp,
+                        start_address: old_ptr,
+                        end_address: old_ptr + t.size * capacity,
+                        details: MemDetails::Vec { fill: t.size * len },
+                    });
+                } else {
+                    error!("no open box for {:?}", event);
+                }
+                open_boxes.push(OpenBox::VecResize(new_ptr), event);
+            }
+            EventDetails::VecDrop { ref t, len, capacity, ptr } => {
+                if let Some(prev_event) = open_boxes.pop(OpenBox::VecCreate(ptr)) {
+                    boxes.push(MemBox {
+                        start_time: prev_event.timestamp,
+                        end_time: prev_event.timestamp,
+                        start_address: ptr,
+                        end_address: ptr + t.size * capacity,
+                        details: MemDetails::Vec { fill: t.size * len },
+                    });
+                } else if let Some(prev_event) = open_boxes.pop(OpenBox::VecResize(ptr)) {
+                    boxes.push(MemBox {
+                        start_time: prev_event.timestamp,
+                        end_time: event.timestamp,
+                        start_address: ptr,
+                        end_address: ptr + t.size * capacity,
+                        details: MemDetails::Vec { fill: t.size * len },
+                    });
+                } else {
+                    error!("no open box for {:?}", event);
+                }
+            }
             _ => {
                 error!("unhandled event: {:?}", event);
             }
@@ -183,6 +229,8 @@ enum OpenBox {
     BoxCreate(Address),
     RcCreate(Address),
     ArcCreate(Address),
+    VecCreate(Address),
+    VecResize(Address),
 }
 
 struct OpenBoxStack<'a>(Vec<(OpenBox, &'a event_log::Event)>);
